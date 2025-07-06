@@ -135,8 +135,8 @@ func TestApplyCNFStartStep(t *testing.T) {
 
 	assert.Equal(t, palindromeAfterStart.start, gAfterStart.start)
 	assert.True(
-		t, 
-		sameStringProductionRulesUpToGenerated(palindromeAfterStart.productionRules, gAfterStart.productionRules), 
+		t,
+		sameStringProductionRulesUpToGenerated(palindromeAfterStart.productionRules, gAfterStart.productionRules),
 		fmt.Sprintf("Expected:%+v\nGot:%+v", palindromeAfterStart.productionRules, gAfterStart.productionRules),
 	)
 }
@@ -152,4 +152,3 @@ func TestApplyCNFTermStep(t *testing.T) {
 		fmt.Sprintf("Expected:%+v\nGot:%+v", palindromeAfterTerm.productionRules, gAfterTerm.productionRules),
 	)
 }
-
