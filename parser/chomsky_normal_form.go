@@ -59,7 +59,7 @@ func (g *ContextFreeGrammar[K]) applyCNFStartStep(
 	newG.productionRules = append(newG.productionRules, ProductionRule[K]{
 		Input: newG.start,
 		Output: []Symbol[K]{
-			Variable[K]{Value: newG.start},
+			Variable[K]{Value: g.start},
 		},
 	})
 	return newG
@@ -97,7 +97,7 @@ func (g *ContextFreeGrammar[K]) applyCNFTermStep(
 	}
 
 	// Append new rules that go from the aliased variables to the original terminals.
-	aliasProductionRules := make([]ProductionRule[K], len(aliasMap))
+	aliasProductionRules := make([]ProductionRule[K], 0, len(aliasMap))
 	for terminal, variable := range aliasMap {
 		aliasProductionRules = append(aliasProductionRules, ProductionRule[K]{
 			Input:  variable,
