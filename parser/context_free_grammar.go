@@ -1,13 +1,7 @@
 package parser
 
-import (
-	"fmt"
-	"io"
-	"os"
-)
-
 type Symbol[K comparable] interface {
-    IsSymbol()
+    isSymbol()
 }
 
 type Variable[K comparable] struct {
@@ -21,6 +15,14 @@ type Terminal struct {
 }
 
 func (t Terminal) isSymbol() {}
+
+func StringToTerminals[K comparable](s string) []Symbol[K] {
+	terminals := make([]Symbol[K], 0)
+	for _, r := range s {
+		terminals = append(terminals, Terminal{Value: r})
+	}
+	return terminals
+}
 
 type ProductionRule[K comparable] struct {
 	Input K
@@ -45,11 +47,11 @@ func NewContextFreeGrammar[K comparable](
 func (g *ContextFreeGrammar[K]) Clone() *ContextFreeGrammar[K] {
 	newProductionRules := make([]ProductionRule[K], len(g.productionRules))
 	for i, pr := range g.productionRules {
-		newPr[i] = ProductionRule[K]{
+		newProductionRules[i] = ProductionRule[K]{
 			Input:  pr.Input,
 			Output: make([]Symbol[K], len(pr.Output)),
 		}
-		copy(newPr[i].Output, pr.Output)
+		copy(newProductionRules[i].Output, pr.Output)
 	}
 
     return &ContextFreeGrammar[K]{

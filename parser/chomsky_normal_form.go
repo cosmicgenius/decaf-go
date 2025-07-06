@@ -1,12 +1,5 @@
 package parser
 
-import (
-	"fmt"
-	"io"
-	"os"
-	"slices"
-)
-
 func (g *ContextFreeGrammar[K]) IsInChomskyNormalForm() bool {
 	for _, pr := range g.productionRules {
 		if len(pr.Output) == 0 {
@@ -34,14 +27,16 @@ func (g *ContextFreeGrammar[K]) IsInChomskyNormalForm() bool {
 			return false
 		}
     }
+	return true
 }
 
 // Step 1: START. If the start variable appears in a production rule on the RHS,
 // produce an additional start variable.
 func (g *ContextFreeGrammar[K]) applyCNFStartStep(
-	rejectionSampleNewVariable func()K
+	produceNewRandomVariable func()K,
 ) *ContextFreeGrammar[K] {
 	newG := g.Clone()
+	rejectionSampleNewVariable := g.rejectionSampleNewVariableFactory(produceNewRandomVariable)
 
 	shouldAppendNewStart := false
 	for _, pr := range g.productionRules {
@@ -66,18 +61,19 @@ func (g *ContextFreeGrammar[K]) applyCNFStartStep(
 		Output: []Symbol[K]{
 			Variable[K]{Value: newG.start},
 		},
-	}
+	})
 	return newG
 }
 
 // Step 2: TERM. For each production rule that with output length > 1,
 // alias the terminals with a variable so all such rules produce only variables.
 func (g *ContextFreeGrammar[K]) applyCNFTermStep(
-	rejectionSampleNewVariable func()K
+	produceNewRandomVariable func()K,
 ) *ContextFreeGrammar[K] {
 	newG := g.Clone()
+	rejectionSampleNewVariable := g.rejectionSampleNewVariableFactory(produceNewRandomVariable)
 
-	aliasMap := make(map[Terminal]Variable[K])
+	aliasMap := make(map[Terminal]K)
 
 	for i, pr := range g.productionRules {
 		if len(pr.Output) <= 1 {
@@ -90,11 +86,11 @@ func (g *ContextFreeGrammar[K]) applyCNFTermStep(
 			if terminal, ok := symbol.(Terminal); ok {
 				// Define new alias if it doesn't already exist.
                 if _, exists := aliasMap[terminal]; !exists {
-                    aliasMap[terminal] = Variable[K]{Value: rejectionSampleNewVariable()}
+                    aliasMap[terminal] = rejectionSampleNewVariable()
                 }
 
 				// Replace with alias.
-				newPr.Output[j] = aliasMap[terminal]
+				newPr.Output[j] = Variable[K]{Value: aliasMap[terminal]}
             }
 		}
 		newG.productionRules[i] = newPr
@@ -113,32 +109,49 @@ func (g *ContextFreeGrammar[K]) applyCNFTermStep(
 	return newG
 }
 
-// Convert a context-free grammar to Chomsky normal form.
-// Unfortunately, since K is generic, we need a source of new variable names.
-// Get this through produceNewRandomVariable().
-func (g *ContextFreeGrammar[K]) ToChomskyNormalForm(
-	produceNewRandomVariable func()K
-) {
-	newStart := start
-	newProductionRules := make(map[K][]ProductionRule[K])
+// Get the set of all variables in the grammar.
+func (g *ContextFreeGrammar[K]) getVariableNameSet() map[K]struct{} {
+	variableNameSet := make(map[K]struct{})
 
-	// Assume that produceNewRandomVariable is actually random, and rejection sample
-	// for a unique new variable name.
-	rejectionSampleNewVariable := func()K {
-		var ret K
-		for ret := produceNewRandomVariable() {
-			if _, ok := newProductionRules[ret]; !ok {
+	for _, pr := range g.productionRules {
+		variableNameSet[pr.Input] = struct{}{}
+	}
+
+	return variableNameSet
+}
+
+// Assume that produceNewRandomVariable is actually random, and rejection sample
+// for a unique new variable name.
+func (g *ContextFreeGrammar[K]) rejectionSampleNewVariableFactory(
+	produceNewRandomVariable func()K,
+) func()K {
+	variableNameSet := g.getVariableNameSet()
+	return func()K {
+		for {
+			ret := produceNewRandomVariable()
+			if _, ok := variableNameSet[ret]; !ok {
 				return ret
 			}
 		}
 	}
+}
 
-	var newG *ContextFreeGrammar[K]
+
+// Convert a context-free grammar to Chomsky normal form.
+// Unfortunately, since K is generic, we need a source of new variable names.
+// Get this through produceNewRandomVariable().
+func (g *ContextFreeGrammar[K]) ToChomskyNormalForm(
+	produceNewRandomVariable func()K,
+) *ContextFreeGrammar[K] {
+	newG := g
 
 	// Step 1: START. If the start variable appears in a production rule on the RHS,
 	// produce an additional start variable.
-	newG = g.applyCNFStartStep(rejectionSampleNewVariable)
+	newG = newG.applyCNFStartStep(produceNewRandomVariable)
 
 	// Step 2: TERM. For each production rule that with output length > 1,
 	// alias the terminals with a variable so all such rules produce only variables.
+	newG = newG.applyCNFTermStep(produceNewRandomVariable)
+
+	return newG
 }
