@@ -6,6 +6,7 @@ import (
 )
 
 type TargetStage int
+
 const (
 	TargetStageAll TargetStage = iota
 	TargetStageScan
@@ -15,19 +16,19 @@ const (
 )
 
 var stageNameToTargetStage = map[string]TargetStage{
-	"": TargetStageAll,
-	"scan": TargetStageScan,
-	"parse": TargetStageParse,
-	"inter": TargetStageInter,
+	"":         TargetStageAll,
+	"scan":     TargetStageScan,
+	"parse":    TargetStageParse,
+	"inter":    TargetStageInter,
 	"assembly": TargetStageAssembly,
 }
 
 type Config struct {
-	InputPath string
-	Stage TargetStage
-	OutputPath string
+	InputPath     string
+	Stage         TargetStage
+	OutputPath    string
 	Optimizations []string
-	Debug bool
+	Debug         bool
 }
 
 func Load(
@@ -47,7 +48,7 @@ func Load(
 			log.Fatalf("invalid target stage %s", *stagePtr)
 		}
 		config.Stage = stage
-    }
+	}
 
 	if outputPathPtr != nil {
 		config.OutputPath = *outputPathPtr
@@ -55,11 +56,11 @@ func Load(
 
 	if optPtr != nil {
 		config.Optimizations = strings.Split(*optPtr, ",")
-    }
+	}
 
 	if debugPtr != nil {
-        config.Debug = *debugPtr
-    }
+		config.Debug = *debugPtr
+	}
 
 	return config
 }

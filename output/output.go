@@ -13,7 +13,7 @@ func SetWriter(w io.Writer) {
 }
 
 func Writef(format string, v ...any) {
-    fmt.Fprintf(writer, format, v...)
+	fmt.Fprintf(writer, format, v...)
 }
 
 func Write(v ...any) {

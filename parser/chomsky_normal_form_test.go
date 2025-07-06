@@ -20,18 +20,18 @@ func productionRuleToString[K comparable](pr ProductionRule[K]) string {
 		default:
 			panic("Unknown symbol type")
 		}
-        outputStringBuilder.WriteString(outputString)
-    }
-    return fmt.Sprintf("%v -> %s", pr.Input, outputStringBuilder.String())
+		outputStringBuilder.WriteString(outputString)
+	}
+	return fmt.Sprintf("%v -> %s", pr.Input, outputStringBuilder.String())
 }
 
 func sameProductionRules[K comparable](
 	prs1 []ProductionRule[K],
-    prs2 []ProductionRule[K],
+	prs2 []ProductionRule[K],
 ) bool {
 	if len(prs1) != len(prs2) {
-        return false
-    }
+		return false
+	}
 
 	difference := make(map[string]int)
 
@@ -40,11 +40,11 @@ func sameProductionRules[K comparable](
 	}
 
 	for _, pr2 := range prs2 {
-        difference[productionRuleToString(pr2)]--
-    }
+		difference[productionRuleToString(pr2)]--
+	}
 
 	for _, v := range difference {
-        if v != 0 {
+		if v != 0 {
 			return false
 		}
 	}
@@ -54,23 +54,22 @@ func sameProductionRules[K comparable](
 var (
 	palindromeOrig = NewContextFreeGrammar[string](
 		"S", /* start */
-        []ProductionRule[string]{
-            {"S", append(append(
+		[]ProductionRule[string]{
+			{"S", append(append(
 				StringToTerminals[string]("a"),
 				[]Symbol[string]{Variable[string]{Value: "S"}}...),
 				StringToTerminals[string]("a")...)},
-            {"S", append(append(
+			{"S", append(append(
 				StringToTerminals[string]("b"),
 				[]Symbol[string]{Variable[string]{Value: "S"}}...),
 				StringToTerminals[string]("b")...)},
-            {"S", StringToTerminals[string]("a")},
-            {"S", StringToTerminals[string]("b")},
-            {"S", []Symbol[string]{}},
-        },
+			{"S", StringToTerminals[string]("a")},
+			{"S", StringToTerminals[string]("b")},
+			{"S", []Symbol[string]{}},
+		},
 	)
 )
 
 func TestIsInChomskyNormalForm(t *testing.T) {
 	assert.False(t, palindromeOrig.IsInChomskyNormalForm())
 }
-

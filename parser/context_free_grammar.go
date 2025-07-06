@@ -1,11 +1,11 @@
 package parser
 
 type Symbol[K comparable] interface {
-    isSymbol()
+	isSymbol()
 }
 
 type Variable[K comparable] struct {
-    Value K
+	Value K
 }
 
 func (v Variable[K]) isSymbol() {}
@@ -25,23 +25,23 @@ func StringToTerminals[K comparable](s string) []Symbol[K] {
 }
 
 type ProductionRule[K comparable] struct {
-	Input K
+	Input  K
 	Output []Symbol[K]
 }
 
 type ContextFreeGrammar[K comparable] struct {
 	start           K
-    productionRules []ProductionRule[K]
+	productionRules []ProductionRule[K]
 }
 
 func NewContextFreeGrammar[K comparable](
 	start K,
 	productionRules []ProductionRule[K],
 ) *ContextFreeGrammar[K] {
-    return &ContextFreeGrammar[K]{
+	return &ContextFreeGrammar[K]{
 		start:           start,
 		productionRules: productionRules,
-    }
+	}
 }
 
 func (g *ContextFreeGrammar[K]) Clone() *ContextFreeGrammar[K] {
@@ -54,8 +54,8 @@ func (g *ContextFreeGrammar[K]) Clone() *ContextFreeGrammar[K] {
 		copy(newProductionRules[i].Output, pr.Output)
 	}
 
-    return &ContextFreeGrammar[K]{
-        start:           g.start,
-        productionRules: newProductionRules,
-    }
+	return &ContextFreeGrammar[K]{
+		start:           g.start,
+		productionRules: newProductionRules,
+	}
 }

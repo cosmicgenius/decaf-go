@@ -26,14 +26,14 @@ func (g *ContextFreeGrammar[K]) IsInChomskyNormalForm() bool {
 			// No production rules with output length > 2 are allowed.
 			return false
 		}
-    }
+	}
 	return true
 }
 
 // Step 1: START. If the start variable appears in a production rule on the RHS,
 // produce an additional start variable.
 func (g *ContextFreeGrammar[K]) applyCNFStartStep(
-	produceNewRandomVariable func()K,
+	produceNewRandomVariable func() K,
 ) *ContextFreeGrammar[K] {
 	newG := g.Clone()
 	rejectionSampleNewVariable := g.rejectionSampleNewVariableFactory(produceNewRandomVariable)
@@ -45,11 +45,11 @@ func (g *ContextFreeGrammar[K]) applyCNFStartStep(
 				shouldAppendNewStart = true
 				break
 			}
-        }
+		}
 		if shouldAppendNewStart {
-            break
-        }
-    }
+			break
+		}
+	}
 
 	if !shouldAppendNewStart {
 		return newG
@@ -57,7 +57,7 @@ func (g *ContextFreeGrammar[K]) applyCNFStartStep(
 
 	newG.start = rejectionSampleNewVariable()
 	newG.productionRules = append(newG.productionRules, ProductionRule[K]{
-		Input:  newG.start,
+		Input: newG.start,
 		Output: []Symbol[K]{
 			Variable[K]{Value: newG.start},
 		},
@@ -68,7 +68,7 @@ func (g *ContextFreeGrammar[K]) applyCNFStartStep(
 // Step 2: TERM. For each production rule that with output length > 1,
 // alias the terminals with a variable so all such rules produce only variables.
 func (g *ContextFreeGrammar[K]) applyCNFTermStep(
-	produceNewRandomVariable func()K,
+	produceNewRandomVariable func() K,
 ) *ContextFreeGrammar[K] {
 	newG := g.Clone()
 	rejectionSampleNewVariable := g.rejectionSampleNewVariableFactory(produceNewRandomVariable)
@@ -79,19 +79,19 @@ func (g *ContextFreeGrammar[K]) applyCNFTermStep(
 		if len(pr.Output) <= 1 {
 			continue
 		}
-		
+
 		newPr := ProductionRule[K]{Input: pr.Input, Output: make([]Symbol[K], len(pr.Output))}
 		for j, symbol := range pr.Output {
 			newPr.Output[j] = symbol
 			if terminal, ok := symbol.(Terminal); ok {
 				// Define new alias if it doesn't already exist.
-                if _, exists := aliasMap[terminal]; !exists {
-                    aliasMap[terminal] = rejectionSampleNewVariable()
-                }
+				if _, exists := aliasMap[terminal]; !exists {
+					aliasMap[terminal] = rejectionSampleNewVariable()
+				}
 
 				// Replace with alias.
 				newPr.Output[j] = Variable[K]{Value: aliasMap[terminal]}
-            }
+			}
 		}
 		newG.productionRules[i] = newPr
 	}
@@ -99,11 +99,11 @@ func (g *ContextFreeGrammar[K]) applyCNFTermStep(
 	// Append new rules that go from the aliased variables to the original terminals.
 	aliasProductionRules := make([]ProductionRule[K], len(aliasMap))
 	for terminal, variable := range aliasMap {
-        aliasProductionRules = append(aliasProductionRules, ProductionRule[K]{
-            Input:  variable,
-            Output: []Symbol[K]{terminal},
-        })
-    }
+		aliasProductionRules = append(aliasProductionRules, ProductionRule[K]{
+			Input:  variable,
+			Output: []Symbol[K]{terminal},
+		})
+	}
 	newG.productionRules = append(newG.productionRules, aliasProductionRules...)
 
 	return newG
@@ -123,10 +123,10 @@ func (g *ContextFreeGrammar[K]) getVariableNameSet() map[K]struct{} {
 // Assume that produceNewRandomVariable is actually random, and rejection sample
 // for a unique new variable name.
 func (g *ContextFreeGrammar[K]) rejectionSampleNewVariableFactory(
-	produceNewRandomVariable func()K,
-) func()K {
+	produceNewRandomVariable func() K,
+) func() K {
 	variableNameSet := g.getVariableNameSet()
-	return func()K {
+	return func() K {
 		for {
 			ret := produceNewRandomVariable()
 			if _, ok := variableNameSet[ret]; !ok {
@@ -136,12 +136,11 @@ func (g *ContextFreeGrammar[K]) rejectionSampleNewVariableFactory(
 	}
 }
 
-
 // Convert a context-free grammar to Chomsky normal form.
 // Unfortunately, since K is generic, we need a source of new variable names.
 // Get this through produceNewRandomVariable().
 func (g *ContextFreeGrammar[K]) ToChomskyNormalForm(
-	produceNewRandomVariable func()K,
+	produceNewRandomVariable func() K,
 ) *ContextFreeGrammar[K] {
 	newG := g
 
