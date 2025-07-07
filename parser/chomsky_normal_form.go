@@ -1,5 +1,9 @@
 package parser
 
+import "errors"
+
+var errBINNotPerformed = errors.New("production rule with output length > 2 detected. Did you perform BIN?")
+
 func (g *ContextFreeGrammar[K]) IsInChomskyNormalForm() bool {
 	for _, pr := range g.productionRules {
 		if len(pr.Output) == 0 {
@@ -113,6 +117,7 @@ func (g *ContextFreeGrammar[K]) applyCNFTermStep(
 func (g *ContextFreeGrammar[K]) applyCNFBinStep(
 	produceNewRandomVariable func() K,
 ) *ContextFreeGrammar[K] {
+	// Just clone here even though it is technically a waste of time.
 	newG := g.Clone()
 	rejectionSampleNewVariable := g.rejectionSampleNewVariableFactory(produceNewRandomVariable)
 
@@ -174,6 +179,117 @@ func (g *ContextFreeGrammar[K]) applyCNFBinStep(
 }
 
 
+// Step 4: DEL. Find and inline (pushdown) all \varepsilon rules.
+// This assumes that BIN has already been performed. Otherwise, this pushdown would cause an.
+// exponential increase in the number of production rules. We will error in that case.
+func (g *ContextFreeGrammar[K]) applyCNFDelStep() (*ContextFreeGrammar[K], error) {
+	// Just clone here even though it is technically a waste of time.
+	newG := g.Clone()
+
+	// First, find the set of variables that can derive \varepsilon.
+	// This is possible iff there exists some production rule A -> X0 X1 ... X(n-1)
+	// where all X(i) are nullable.
+	//
+	// We'll just do some O(#variables * #production rules) loop because efficiency doesn't really matter here,
+	// and in practice this is pretty fast.
+	nullable := make(map[K]bool)
+
+	// Iterate until nothing changes. Note that this iterates at most #variables times
+	// since #nullable is otherwise strictly increasing.
+	changed := true
+	for changed {
+		changed = false
+
+		for _, pr := range g.productionRules {
+			if nullable[pr.Input] {
+				continue
+			}
+
+			// If there is a production rule A -> \varepsilon, clearly A is nullable.
+			if len(pr.Output) == 0 {
+				nullable[pr.Input] = true
+				changed = true
+				continue
+			}
+
+			allNullable := true
+			// If pr is a production rule A -> X0 X1 ... X(n-1) such that
+			// all X(i) are nullable, then A is nullable.
+			for _, symbol := range pr.Output {
+				switch s := symbol.(type) {
+				case Terminal:
+					allNullable = false
+					break
+				case Variable[K]:
+					if !nullable[s.Value] {
+						allNullable = false
+						break
+					}
+				default:
+					panic("unreachable")
+				}
+			}
+			if allNullable {
+				nullable[pr.Input] = true
+				changed = true
+			}
+		}
+	}
+
+	getPushedDownProductionRules := func(pr ProductionRule[K]) ([]ProductionRule[K], error) {
+		// Delete any production rule that produces \varepsilon if it is not from the starting variable.
+		if len(pr.Output) == 0 {
+			if pr.Input == g.start {
+				return []ProductionRule[K]{pr}, nil
+            }
+			return []ProductionRule[K]{}, nil
+        }
+
+		// Passthrough any production rule with output length 1
+		if len(pr.Output) == 1 {
+            return []ProductionRule[K]{pr}, nil
+        }
+
+		if len(pr.Output) > 2 {
+			return nil, errBINNotPerformed
+		}
+
+		// Otherwise, pr is of the form A -> B C
+		newProductionRules := []ProductionRule[K]{pr}
+
+		// If B is a nullable variable, add the production rule A -> C
+		if variable, ok := pr.Output[0].(Variable[K]); ok && nullable[variable.Value] {
+			newProductionRules = append(newProductionRules, ProductionRule[K]{
+				Input:  pr.Input,
+				Output: []Symbol[K]{pr.Output[1]},
+			})
+		}
+
+		// Similarly, if C is a nullable variable, add the production rule A -> B
+		if variable, ok := pr.Output[1].(Variable[K]); ok && nullable[variable.Value] {
+            newProductionRules = append(newProductionRules, ProductionRule[K]{
+                Input:  pr.Input,
+                Output: []Symbol[K]{pr.Output[0]},
+            })
+        }
+
+		return newProductionRules, nil
+	}
+
+	// Just put some lower bound reservation
+	newG.productionRules = make([]ProductionRule[K], 0, len(g.productionRules))
+
+	for _, pr := range g.productionRules {
+		pushedDownProductionRules, err := getPushedDownProductionRules(pr)
+		if err != nil {
+			return nil, err
+		}
+		newG.productionRules = append(newG.productionRules, pushedDownProductionRules...)
+	}
+
+	return newG, nil
+}
+
 // Get the set of all variables in the grammar.
 func (g *ContextFreeGrammar[K]) getVariableNameSet() map[K]struct{} {
 	variableNameSet := make(map[K]struct{})
@@ -209,13 +325,17 @@ func (g *ContextFreeGrammar[K]) ToChomskyNormalForm(
 ) *ContextFreeGrammar[K] {
 	newG := g
 
-	// Step 1: START. If the start variable appears in a production rule on the RHS,
-	// produce an additional start variable.
+	// Apply each of the steps in succession
+	var err error
 	newG = newG.applyCNFStartStep(produceNewRandomVariable)
-
-	// Step 2: TERM. For each production rule that with output length > 1,
-	// alias the terminals with a variable so all such rules produce only variables.
 	newG = newG.applyCNFTermStep(produceNewRandomVariable)
+	newG = newG.applyCNFBinStep(produceNewRandomVariable)
+	newG, err = newG.applyCNFDelStep()
+	// Should only happen if applyCNFDelStep is called before applyCNFBinStep
+	// which is obviously not possible here.
+	if err != nil {
+        panic(err)
+    }
 
 	return newG
 }

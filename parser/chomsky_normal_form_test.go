@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func stringProductionRuleToStringUpToGenerated(pr ProductionRule[string]) string {
@@ -23,7 +24,7 @@ func stringProductionRuleToStringUpToGenerated(pr ProductionRule[string]) string
 				outputString = fmt.Sprintf("Var(%v)", s.Value)
 			}
 		default:
-			panic("Unknown symbol type")
+			panic("unreachable")
 		}
 		outputStringBuilder.WriteString(outputString)
 	}
@@ -143,6 +144,35 @@ var (
 			{"V2", StringToTerminals[string]("b")},
 		},
 	)
+
+	palindromeAfterDel = NewContextFreeGrammar[string](
+		"V0", /* start */
+		[]ProductionRule[string]{
+			{"S", []Symbol[string]{
+				Variable[string]{Value: "V1"},
+				Variable[string]{Value: "V3"},
+			}},
+			{"V3", []Symbol[string]{
+				Variable[string]{Value: "S"},
+				Variable[string]{Value: "V1"},
+			}},
+			{"V3", []Symbol[string]{Variable[string]{Value: "V1"}}},
+			{"S", []Symbol[string]{
+				Variable[string]{Value: "V2"},
+				Variable[string]{Value: "V4"},
+			}},
+			{"V4", []Symbol[string]{
+				Variable[string]{Value: "S"},
+				Variable[string]{Value: "V2"},
+			}},
+			{"V4", []Symbol[string]{Variable[string]{Value: "V2"}}},
+			{"S", StringToTerminals[string]("a")},
+			{"S", StringToTerminals[string]("b")},
+			{"V0", []Symbol[string]{Variable[string]{Value: "S"}}},
+			{"V1", StringToTerminals[string]("a")},
+			{"V2", StringToTerminals[string]("b")},
+		},
+	)
 )
 
 func generateVariable() string {
@@ -156,6 +186,7 @@ func TestIsInChomskyNormalForm(t *testing.T) {
 	assert.False(t, palindromeAfterStart.IsInChomskyNormalForm())
 	assert.False(t, palindromeAfterTerm.IsInChomskyNormalForm())
 	assert.False(t, palindromeAfterBin.IsInChomskyNormalForm())
+	assert.False(t, palindromeAfterDel.IsInChomskyNormalForm())
 }
 
 func TestApplyCNFStartStep(t *testing.T) {
@@ -191,5 +222,18 @@ func TestApplyCNFBinStep(t *testing.T) {
 		t,
 		sameStringProductionRulesUpToGenerated(palindromeAfterBin.productionRules, gAfterBin.productionRules),
 		fmt.Sprintf("Expected:%+v\nGot:%+v", palindromeAfterBin.productionRules, gAfterBin.productionRules),
+	)
+}
+
+func TestApplyCNFDelStep(t *testing.T) {
+	g := palindromeAfterBin.Clone()
+	gAfterDel, err := g.applyCNFDelStep()
+	require.NoError(t, err)
+
+	assert.Equal(t, palindromeAfterDel.start, gAfterDel.start)
+	assert.True(
+		t,
+		sameStringProductionRulesUpToGenerated(palindromeAfterDel.productionRules, gAfterDel.productionRules),
+		fmt.Sprintf("Expected:%+v\nGot:%+v", palindromeAfterDel.productionRules, gAfterDel.productionRules),
 	)
 }
