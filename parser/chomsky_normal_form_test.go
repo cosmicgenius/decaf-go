@@ -115,6 +115,34 @@ var (
 			{"V2", StringToTerminals[string]("b")},
 		},
 	)
+
+	palindromeAfterBin = NewContextFreeGrammar[string](
+		"V0", /* start */
+		[]ProductionRule[string]{
+			{"S", []Symbol[string]{
+				Variable[string]{Value: "V1"},
+				Variable[string]{Value: "V3"},
+			}},
+			{"V3", []Symbol[string]{
+				Variable[string]{Value: "S"},
+				Variable[string]{Value: "V1"},
+			}},
+			{"S", []Symbol[string]{
+				Variable[string]{Value: "V2"},
+				Variable[string]{Value: "V4"},
+			}},
+			{"V4", []Symbol[string]{
+				Variable[string]{Value: "S"},
+				Variable[string]{Value: "V2"},
+			}},
+			{"S", StringToTerminals[string]("a")},
+			{"S", StringToTerminals[string]("b")},
+			{"S", []Symbol[string]{}},
+			{"V0", []Symbol[string]{Variable[string]{Value: "S"}}},
+			{"V1", StringToTerminals[string]("a")},
+			{"V2", StringToTerminals[string]("b")},
+		},
+	)
 )
 
 func generateVariable() string {
@@ -127,6 +155,7 @@ func TestIsInChomskyNormalForm(t *testing.T) {
 	assert.False(t, palindromeOrig.IsInChomskyNormalForm())
 	assert.False(t, palindromeAfterStart.IsInChomskyNormalForm())
 	assert.False(t, palindromeAfterTerm.IsInChomskyNormalForm())
+	assert.False(t, palindromeAfterBin.IsInChomskyNormalForm())
 }
 
 func TestApplyCNFStartStep(t *testing.T) {
@@ -150,5 +179,17 @@ func TestApplyCNFTermStep(t *testing.T) {
 		t,
 		sameStringProductionRulesUpToGenerated(palindromeAfterTerm.productionRules, gAfterTerm.productionRules),
 		fmt.Sprintf("Expected:%+v\nGot:%+v", palindromeAfterTerm.productionRules, gAfterTerm.productionRules),
+	)
+}
+
+func TestApplyCNFBinStep(t *testing.T) {
+    g := palindromeAfterTerm.Clone()
+    gAfterBin := g.applyCNFBinStep(generateVariable)
+
+	assert.Equal(t, palindromeAfterBin.start, gAfterBin.start)
+	assert.True(
+		t,
+		sameStringProductionRulesUpToGenerated(palindromeAfterBin.productionRules, gAfterBin.productionRules),
+		fmt.Sprintf("Expected:%+v\nGot:%+v", palindromeAfterBin.productionRules, gAfterBin.productionRules),
 	)
 }

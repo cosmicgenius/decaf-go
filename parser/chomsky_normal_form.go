@@ -109,6 +109,71 @@ func (g *ContextFreeGrammar[K]) applyCNFTermStep(
 	return newG
 }
 
+// Step 3: BIN. Split up any production rules that produce more than 2 symbols on the RHS.
+func (g *ContextFreeGrammar[K]) applyCNFBinStep(
+	produceNewRandomVariable func() K,
+) *ContextFreeGrammar[K] {
+	newG := g.Clone()
+	rejectionSampleNewVariable := g.rejectionSampleNewVariableFactory(produceNewRandomVariable)
+
+	getSplitProductionRules := func(pr ProductionRule[K]) []ProductionRule[K] {
+		// Given a production rule of the form A -> X0 X1 ... X(n-1),
+		// split it into
+		//     A      -> X0 A0
+		//     A0     -> X1 A1
+        //     ...
+        //     A(n-4) -> X(n-3) A(n-3)
+        //     A(n-3) -> X(n-2) X(n-1)
+		n := len(pr.Output)
+
+		if n <= 2 {
+            return []ProductionRule[K]{pr}
+        }
+
+		splitProductionRules := make([]ProductionRule[K], 0, n-1)
+		newVariables := make([]K, n-2)
+        for i := 0; i < n-2; i++ {
+            newVariables[i] = rejectionSampleNewVariable()
+        }
+
+		// Add the A -> X0 A0 rule
+		splitProductionRules = append(splitProductionRules, ProductionRule[K]{
+            Input:  pr.Input,
+            Output: []Symbol[K]{
+				pr.Output[0],
+				Variable[K]{Value: newVariables[0]},
+			},
+        })
+		// Add the rules of the form A(i) -> X(i+1) A(i+1)
+		for i := 0; i < n-3; i++ {
+			splitProductionRules = append(splitProductionRules, ProductionRule[K]{
+				Input:  newVariables[i],
+				Output: []Symbol[K]{
+					pr.Output[i+1],
+					Variable[K]{Value: newVariables[i+1]},
+				},
+			})
+		}
+		// Add the A(n-3) -> X(n-2) X(n-1) rule
+		splitProductionRules = append(splitProductionRules, ProductionRule[K]{
+			Input:  newVariables[n-3],
+			Output: []Symbol[K]{pr.Output[n-2], pr.Output[n-1]},
+		})
+
+		return splitProductionRules
+	}
+
+	// Just put some lower bound reservation
+	newG.productionRules = make([]ProductionRule[K], 0, len(g.productionRules))
+
+	for _, pr := range g.productionRules {
+		newG.productionRules = append(newG.productionRules, getSplitProductionRules(pr)...)
+	}
+
+	return newG
+}
+
+
 // Get the set of all variables in the grammar.
 func (g *ContextFreeGrammar[K]) getVariableNameSet() map[K]struct{} {
 	variableNameSet := make(map[K]struct{})
