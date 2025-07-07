@@ -173,6 +173,44 @@ var (
 			{"V2", StringToTerminals[string]("b")},
 		},
 	)
+
+	palindromeAfterUnit = NewContextFreeGrammar[string](
+		"V0", /* start */
+		[]ProductionRule[string]{
+			{"V0", []Symbol[string]{
+				Variable[string]{Value: "V1"},
+				Variable[string]{Value: "V3"},
+			}},
+			{"V0", []Symbol[string]{
+				Variable[string]{Value: "V2"},
+				Variable[string]{Value: "V4"},
+			}},
+			{"V0", StringToTerminals[string]("a")},
+			{"V0", StringToTerminals[string]("b")},
+			{"S", []Symbol[string]{
+				Variable[string]{Value: "V1"},
+				Variable[string]{Value: "V3"},
+			}},
+			{"V3", []Symbol[string]{
+				Variable[string]{Value: "S"},
+				Variable[string]{Value: "V1"},
+			}},
+			{"V3", StringToTerminals[string]("a")},
+			{"S", []Symbol[string]{
+				Variable[string]{Value: "V2"},
+				Variable[string]{Value: "V4"},
+			}},
+			{"V4", []Symbol[string]{
+				Variable[string]{Value: "S"},
+				Variable[string]{Value: "V2"},
+			}},
+			{"V4", StringToTerminals[string]("b")},
+			{"S", StringToTerminals[string]("a")},
+			{"S", StringToTerminals[string]("b")},
+			{"V1", StringToTerminals[string]("a")},
+			{"V2", StringToTerminals[string]("b")},
+		},
+	)
 )
 
 func generateVariable() string {
@@ -187,6 +225,7 @@ func TestIsInChomskyNormalForm(t *testing.T) {
 	assert.False(t, palindromeAfterTerm.IsInChomskyNormalForm())
 	assert.False(t, palindromeAfterBin.IsInChomskyNormalForm())
 	assert.False(t, palindromeAfterDel.IsInChomskyNormalForm())
+	assert.True(t, palindromeAfterUnit.IsInChomskyNormalForm())
 }
 
 func TestApplyCNFStartStep(t *testing.T) {
@@ -235,5 +274,17 @@ func TestApplyCNFDelStep(t *testing.T) {
 		t,
 		sameStringProductionRulesUpToGenerated(palindromeAfterDel.productionRules, gAfterDel.productionRules),
 		fmt.Sprintf("Expected:%+v\nGot:%+v", palindromeAfterDel.productionRules, gAfterDel.productionRules),
+	)
+}
+
+func TestApplyCNFUnitStep(t *testing.T) {
+	g := palindromeAfterDel.Clone()
+	gAfterUnit := g.applyCNFUnitStep()
+
+	assert.Equal(t, palindromeAfterUnit.start, gAfterUnit.start)
+	assert.True(
+		t,
+		sameStringProductionRulesUpToGenerated(palindromeAfterUnit.productionRules, gAfterUnit.productionRules),
+		fmt.Sprintf("Expected:%+v\nGot:%+v", palindromeAfterUnit.productionRules, gAfterUnit.productionRules),
 	)
 }

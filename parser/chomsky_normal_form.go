@@ -191,7 +191,7 @@ func (g *ContextFreeGrammar[K]) applyCNFDelStep() (*ContextFreeGrammar[K], error
 	// where all X(i) are nullable.
 	//
 	// We'll just do some O(#variables * #production rules) loop because efficiency doesn't really matter here,
-	// and in practice this is pretty fast.
+	// and also this is actually quite tricky to get right (e.g. we need to avoid dying due to cycles).
 	nullable := make(map[K]bool)
 
 	// Iterate until nothing changes. Note that this iterates at most #variables times
@@ -290,6 +290,99 @@ func (g *ContextFreeGrammar[K]) applyCNFDelStep() (*ContextFreeGrammar[K], error
 	return newG, nil
 }
 
+// Step 5: UNIT. Pushdown all rules of the form A -> B.
+func (g *ContextFreeGrammar[K]) applyCNFUnitStep() *ContextFreeGrammar[K] {
+	// Clone even though it's a bit useless.
+	newG := g.Clone()
+
+	// Construct a graph of all unital production rules, i.e. ones of the form A -> B.
+	unitalProductionRuleGraph := make(map[K]map[K]bool)
+	variables := g.getVariableNameSet()
+
+	// Initialize adjacency matrix with just the identity
+	for v := range variables {
+		unitalProductionRuleGraph[v] = make(map[K]bool)
+		for u := range variables {
+			unitalProductionRuleGraph[v][u] = false
+		}
+		unitalProductionRuleGraph[v][v] = true
+	}
+
+	// Save a map of all non unital production rules.
+	nonUnitalProductionRules := make(map[K][]ProductionRule[K])
+
+	for _, pr := range g.productionRules {
+		// Unital
+		if len(pr.Output) == 1 {
+			if output, ok := pr.Output[0].(Variable[K]); ok {
+				unitalProductionRuleGraph[pr.Input][output.Value] = true
+				continue
+			}
+		}
+
+		nonUnitalProductionRules[pr.Input] = append(nonUnitalProductionRules[pr.Input], pr)
+    }
+
+	// Compute the connectivity graph using Floyd-Warshall. This is fast enough for us.
+	for k := range unitalProductionRuleGraph {
+		for i := range unitalProductionRuleGraph {
+            for j := range unitalProductionRuleGraph {
+				if unitalProductionRuleGraph[i][j] {
+					continue
+                }
+
+				unitalProductionRuleGraph[i][j] = unitalProductionRuleGraph[i][k] && unitalProductionRuleGraph[k][j]
+			}
+		}
+	}
+
+	// For each v, compute all the production rules that can be obtained
+	// by repeatedly applying unital rules, and then applying 1 non-unital rule.
+	allPulledBackProductionRules := make(map[K][]ProductionRule[K])
+	for v := range unitalProductionRuleGraph {
+		for u := range unitalProductionRuleGraph[v] {
+			if unitalProductionRuleGraph[v][u] {
+				// Change the input from u to v for each non-unital production rule with input u
+				pulledBackProductionRules := make([]ProductionRule[K], len(nonUnitalProductionRules[u]))
+				for i, pr := range nonUnitalProductionRules[u] {
+					pulledBackProductionRules[i] = ProductionRule[K]{
+						Input:  v,
+						Output: pr.Output,
+					}
+				}
+				allPulledBackProductionRules[v] = append(allPulledBackProductionRules[v], pulledBackProductionRules...)
+			}
+		}
+	}
+
+	// Prune by keeping only the pulled back production rules
+	// that are reachable from the starting variable.
+	reachable := make(map[K]struct{})
+	var traverse func(v K)
+	traverse = func(v K) {
+		if _, ok := reachable[v]; ok {
+            return
+        }
+        reachable[v] = struct{}{}
+		for _, pr := range allPulledBackProductionRules[v] {
+			for _, output := range pr.Output {
+                if outputVariable, ok := output.(Variable[K]); ok {
+                    traverse(outputVariable.Value)
+                }
+            }
+        }
+	}
+	traverse(g.start)
+
+	newG.productionRules = make([]ProductionRule[K], 0)
+	for v := range reachable {
+		newG.productionRules = append(newG.productionRules, allPulledBackProductionRules[v]...)
+    }
+
+	return newG
+}
+
+
 // Get the set of all variables in the grammar.
 func (g *ContextFreeGrammar[K]) getVariableNameSet() map[K]struct{} {
 	variableNameSet := make(map[K]struct{})
@@ -336,6 +429,7 @@ func (g *ContextFreeGrammar[K]) ToChomskyNormalForm(
 	if err != nil {
         panic(err)
     }
+	newG = newG.applyCNFUnitStep()
 
 	return newG
 }
