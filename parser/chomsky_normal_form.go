@@ -126,33 +126,33 @@ func (g *ContextFreeGrammar[K]) applyCNFBinStep(
 		// split it into
 		//     A      -> X0 A0
 		//     A0     -> X1 A1
-        //     ...
-        //     A(n-4) -> X(n-3) A(n-3)
-        //     A(n-3) -> X(n-2) X(n-1)
+		//     ...
+		//     A(n-4) -> X(n-3) A(n-3)
+		//     A(n-3) -> X(n-2) X(n-1)
 		n := len(pr.Output)
 
 		if n <= 2 {
-            return []ProductionRule[K]{pr}
-        }
+			return []ProductionRule[K]{pr}
+		}
 
 		splitProductionRules := make([]ProductionRule[K], 0, n-1)
 		newVariables := make([]K, n-2)
-        for i := 0; i < n-2; i++ {
-            newVariables[i] = rejectionSampleNewVariable()
-        }
+		for i := 0; i < n-2; i++ {
+			newVariables[i] = rejectionSampleNewVariable()
+		}
 
 		// Add the A -> X0 A0 rule
 		splitProductionRules = append(splitProductionRules, ProductionRule[K]{
-            Input:  pr.Input,
-            Output: []Symbol[K]{
+			Input: pr.Input,
+			Output: []Symbol[K]{
 				pr.Output[0],
 				Variable[K]{Value: newVariables[0]},
 			},
-        })
+		})
 		// Add the rules of the form A(i) -> X(i+1) A(i+1)
 		for i := 0; i < n-3; i++ {
 			splitProductionRules = append(splitProductionRules, ProductionRule[K]{
-				Input:  newVariables[i],
+				Input: newVariables[i],
 				Output: []Symbol[K]{
 					pr.Output[i+1],
 					Variable[K]{Value: newVariables[i+1]},
@@ -177,7 +177,6 @@ func (g *ContextFreeGrammar[K]) applyCNFBinStep(
 
 	return newG
 }
-
 
 // Step 4: DEL. Find and inline (pushdown) all \varepsilon rules.
 // This assumes that BIN has already been performed. Otherwise, this pushdown would cause an.
@@ -241,14 +240,14 @@ func (g *ContextFreeGrammar[K]) applyCNFDelStep() (*ContextFreeGrammar[K], error
 		if len(pr.Output) == 0 {
 			if pr.Input == g.start {
 				return []ProductionRule[K]{pr}, nil
-            }
+			}
 			return []ProductionRule[K]{}, nil
-        }
+		}
 
 		// Passthrough any production rule with output length 1
 		if len(pr.Output) == 1 {
-            return []ProductionRule[K]{pr}, nil
-        }
+			return []ProductionRule[K]{pr}, nil
+		}
 
 		if len(pr.Output) > 2 {
 			return nil, errBINNotPerformed
@@ -267,11 +266,11 @@ func (g *ContextFreeGrammar[K]) applyCNFDelStep() (*ContextFreeGrammar[K], error
 
 		// Similarly, if C is a nullable variable, add the production rule A -> B
 		if variable, ok := pr.Output[1].(Variable[K]); ok && nullable[variable.Value] {
-            newProductionRules = append(newProductionRules, ProductionRule[K]{
-                Input:  pr.Input,
-                Output: []Symbol[K]{pr.Output[0]},
-            })
-        }
+			newProductionRules = append(newProductionRules, ProductionRule[K]{
+				Input:  pr.Input,
+				Output: []Symbol[K]{pr.Output[0]},
+			})
+		}
 
 		return newProductionRules, nil
 	}
@@ -321,15 +320,15 @@ func (g *ContextFreeGrammar[K]) applyCNFUnitStep() *ContextFreeGrammar[K] {
 		}
 
 		nonUnitalProductionRules[pr.Input] = append(nonUnitalProductionRules[pr.Input], pr)
-    }
+	}
 
 	// Compute the connectivity graph using Floyd-Warshall. This is fast enough for us.
 	for k := range unitalProductionRuleGraph {
 		for i := range unitalProductionRuleGraph {
-            for j := range unitalProductionRuleGraph {
+			for j := range unitalProductionRuleGraph {
 				if unitalProductionRuleGraph[i][j] {
 					continue
-                }
+				}
 
 				unitalProductionRuleGraph[i][j] = unitalProductionRuleGraph[i][k] && unitalProductionRuleGraph[k][j]
 			}
@@ -361,27 +360,26 @@ func (g *ContextFreeGrammar[K]) applyCNFUnitStep() *ContextFreeGrammar[K] {
 	var traverse func(v K)
 	traverse = func(v K) {
 		if _, ok := reachable[v]; ok {
-            return
-        }
-        reachable[v] = struct{}{}
+			return
+		}
+		reachable[v] = struct{}{}
 		for _, pr := range allPulledBackProductionRules[v] {
 			for _, output := range pr.Output {
-                if outputVariable, ok := output.(Variable[K]); ok {
-                    traverse(outputVariable.Value)
-                }
-            }
-        }
+				if outputVariable, ok := output.(Variable[K]); ok {
+					traverse(outputVariable.Value)
+				}
+			}
+		}
 	}
 	traverse(g.start)
 
 	newG.productionRules = make([]ProductionRule[K], 0)
 	for v := range reachable {
 		newG.productionRules = append(newG.productionRules, allPulledBackProductionRules[v]...)
-    }
+	}
 
 	return newG
 }
-
 
 // Get the set of all variables in the grammar.
 func (g *ContextFreeGrammar[K]) getVariableNameSet() map[K]struct{} {
@@ -427,8 +425,8 @@ func (g *ContextFreeGrammar[K]) ToChomskyNormalForm(
 	// Should only happen if applyCNFDelStep is called before applyCNFBinStep
 	// which is obviously not possible here.
 	if err != nil {
-        panic(err)
-    }
+		panic(err)
+	}
 	newG = newG.applyCNFUnitStep()
 
 	return newG
